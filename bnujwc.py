@@ -77,7 +77,7 @@ class BNUjwc:
         self._parser = TableHTMLParser()
 
         # des js
-        with open('des.js', 'r') as f:
+        with open('des.js', 'r', encoding='utf8') as f:
             self._des = execjs.compile(f.read())
 
     def _get_login_params(self):
@@ -112,7 +112,14 @@ class BNUjwc:
     def _get_student_info(self):
         """
         get student information (grade, semester, student id ...
-        :return:
+        :return: {
+            'zydm': '', # code for profression
+            'nj': '2014', # grade
+            'xn': '2015', # school year
+            'xh': '', # student id
+            'zymc': '', # profession
+            'xq_m': '1' # semester
+        }
         """
         if self._info:
             return
@@ -124,13 +131,25 @@ class BNUjwc:
         for e in info_node[1]:
             self._info[e.tag] = e.text
 
+        return self._info
+
     def _get_table_list(self, table_id, post_data):
+        """
+        get table page and parse the table HTML to a list of dict
+        :param table_id: ID of table to get
+        :param post_data: POST data
+        :return: a list of dict (each dict is a row)
+        """
         r = self._s.post(BNUjwc._table_url + table_id, data=post_data)
         self._parser.feed(r.text)
         return self._parser.courses
 
     def _encrypt_params(self, params):
-
+        """
+        encrypt params to be POST
+        :param params: params to be encrypted
+        :return: encrypted params
+        """
         r = self._s.get(BNUjwc._deskey_url + str(random.randint(0, 10000000)))
 
         _deskey = ''
@@ -179,6 +198,30 @@ class BNUjwc:
             raise LoginError('登录提交失败！状态码：' + str(r.status_code))
 
     def get_plan_courses(self, show_full=False):
+        """
+        get planned courses
+        :param show_full: do show the courses at full
+        :return: a list of dict [{
+            'kcxz': '01', # unknown
+            'xkfs': '学生网上选', # selection method
+            'sksjdd': '1-16周 四[9-10] 八111(62)', # when and where
+            'rkjs': '[00]xx', # teacher
+            'kcdm': '', # code for course
+            'zxs': '', # total lecture hours,
+            'xk_status': '选中', # status of selection
+            'skbjdm': '', # code for class of the course
+            'xk_points': '0', # needed point to select the course (deprecated)
+            'xf': '', # score of the course
+            'kclb2': '', # classification code 2 of course
+            'khfs': '', # unknown
+            'lb': '学校平台/大学外语模块/必修', # classification
+            'operation': '查看', # operation
+            'kclb1': '', # classification code 1 of course
+            'kc': '[00]xx', # course name
+            'is_buy_book': '0', # do buy book (deprecated)
+            'is_cx': '0' # is rehabilitation course
+        }, ...]
+        """
         self._get_student_info()
         post_data = {
             'initQry': 0,
@@ -205,6 +248,28 @@ class BNUjwc:
         return self._get_table_list(BNUjwc._course_list_table_id, post_data)
 
     def get_cancel_courses(self):
+        """
+        get courses which can be canceled
+        :return: a list of dict [{
+            'xkfs': '学生网上选', # selection method
+            'sksjdd': '1-16周 四[9-10] 八111(62)', # when and where
+            'rkjs': '[00]xx', # teacher
+            'school_name': '本部', # school name
+            'kcdm': '', # code for course
+            'zxs': '', # total lecture hours,
+            'xk_status': '选中', # status of selection
+            'skbjdm': '', # code for class of the course
+            'xk_points': '0', # needed point to select the course (deprecated)
+            'xf': '', # score of the course
+            'kclb2': '', # classification code 2 of course
+            'show_skbjdm': '', # code shown for class of course
+            'khfs': '', # unknown
+            'lb': '学校平台/大学外语模块/必修', # classification
+            'operation': '退选', # operation
+            'kclb1': '', # classification code 1 of course
+            'kc': '[00]xx' # course name
+        }, ...]
+        """
         self._get_student_info()
         post_data = {
             'xktype': 5,
@@ -221,6 +286,35 @@ class BNUjwc:
         return self._get_table_list(BNUjwc._cancel_list_table_id, post_data)
 
     def get_elective_courses(self, show_full=False):
+        """
+        get elective courses
+        :param show_full: do show the courses at full
+        :return: a list of dict [{
+            'xkfs': '学生网上选', # selection method
+            'sksj': '1-16周 四[9-10]', # when
+            'rkjs': '[00]xx', # teacher
+            'kcdm': '', # code for course
+            'zxs': '', # total lecture hours,
+            'xz': '已选中', # status of selection
+            'skbjdm': '', # code for class of the course
+            'xk_points': '0', # needed point to select the course (deprecated)
+            'xf': '', # score of the course
+            'kclb2': '', # classification code 2 of course
+            'khfs': '', # unknown
+            'lb': '学校平台/大学外语模块/必修', # classification
+            'operation': '查看', # operation
+            'kclb1': '', # classification code 1 of course
+            'kc': '[00]xx', # course name
+            'is_buy_book': '0', # do buy book (deprecated)
+            'is_cx': '0', # is rehabilitation course
+            'skfs': '理论', # teaching method
+            'yxrs': 'current/listen free', # number of student selecting the course
+            'skdd': '七107', # where
+            'xxrs': '', # capacity
+            'skbj': '01', # class
+            'kxrs': '' # remaining amount
+        }, ...]
+        """
         self._get_student_info()
         post_data = {
             'initQry': 0,
@@ -249,7 +343,15 @@ class BNUjwc:
         return self._get_table_list(BNUjwc._elective_course_list_table_id, post_data)
 
     def cancel_course(self, course):
-
+        """
+        cancel specific course
+        :param course: course info dict returned by get_cancel_courses
+        :return: {
+            'result': '',
+            'status': '200|400',
+            'message': ''
+        }
+        """
         self._get_student_info()
         params = "xn=%s&xq=%s&xh=%s&kcdm=%s&skbjdm=%s&xktype=5" % (self._info['xn'], self._info['xq_m'],
                                                                    self._info['xh'], course['kcdm'], course['skbjdm'])
@@ -262,6 +364,15 @@ class BNUjwc:
         return json.loads(r.text)
 
     def select_elective_course(self, course):
+        """
+        select specific elective course
+        :param course: course info dict returned by get_elective_courses
+        :return: {
+            'result': '',
+            'status': '200|400',
+            'message': ''
+        }
+        """
         self._get_student_info()
         params = "xktype=2&initQry=0&xh=%s&xn=%s&xq=%s&nj=%s&zydm=%s&" \
                  "kcdm=%s&kclb1=%s&kclb2=%s&khfs=%s&skbjdm=%s&" \
@@ -279,15 +390,15 @@ class BNUjwc:
         })
         return json.loads(r.text)
 
+
 if __name__ == '__main__':
     jwc = BNUjwc()
     with open('user.txt', 'r') as f:
         jwc.login(f.readline().strip(), f.readline().strip())
-    print(jwc._get_student_info())
-    """
+
     courses = jwc.get_elective_courses()
     for i, course in enumerate(courses):
         print(i, course)
     i = input()
     print(jwc.select_elective_course(courses[int(i)]))
-    """
+

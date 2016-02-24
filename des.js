@@ -1,4 +1,4 @@
-﻿/**
+/**
 * DES加密/解密
 * @Copyright Copyright (c) 2006
 * @author Guapo
