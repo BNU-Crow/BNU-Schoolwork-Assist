@@ -67,18 +67,18 @@ class BNUjwc:
     def __init__(self):
         self._s = requests.Session()
         self._s.headers.update({
-            'content-type': 'application/x-www-form-urlencoded',
+            'Content-Type': 'application/x-www-form-urlencoded',
             'Referer': 'http://zyfw.bnu.edu.cn'
         })
+
         self._lt = ''
         self._execution = ''
         self._info = {}
         self._parser = TableHTMLParser()
 
-        #des js
+        # des js
         with open('des.js', 'r') as f:
             self._des = execjs.compile(f.read())
-
 
     def _get_login_params(self):
         """
@@ -109,6 +109,48 @@ class BNUjwc:
         self._lt = lt
         self._execution = execution
 
+    def _get_student_info(self):
+        """
+        get student information (grade, semester, student id ...
+        :return:
+        """
+        if self._info:
+            return
+
+        r = self._s.post(BNUjwc._student_info_url)
+        info_node = etree.fromstring(r.text)
+
+        self._info[info_node[0].tag] = info_node[0].text
+        for e in info_node[1]:
+            self._info[e.tag] = e.text
+
+    def _get_table_list(self, table_id, post_data):
+        r = self._s.post(BNUjwc._table_url + table_id, data=post_data)
+        self._parser.feed(r.text)
+        return self._parser.courses
+
+    def _encrypt_params(self, params):
+
+        r = self._s.get(BNUjwc._deskey_url + str(random.randint(0, 10000000)))
+
+        _deskey = ''
+        m = re.search(r"var _deskey = '(.*)';", r.text)
+        if m:
+             _deskey = m.group(1)
+
+        timestamp = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        m = hashlib.md5()
+        m.update(params.encode('ascii'))
+        params_md5 = m.hexdigest()
+        m = hashlib.md5()
+        m.update(timestamp.encode('ascii'))
+        time_md5 = m.hexdigest()
+        m = hashlib.md5()
+        m.update((params_md5+time_md5).encode('ascii'))
+        token = m.hexdigest()
+        _params = base64.b64encode(self._des.call('strEnc', params, _deskey).encode())
+        return _params, token, timestamp
+
     def login(self, username, password):
         """
         login with username and password
@@ -136,27 +178,7 @@ class BNUjwc:
         if r.status_code != 200:
             raise LoginError('登录提交失败！状态码：' + str(r.status_code))
 
-    def _get_student_info(self):
-        """
-        get student information (grade, semester, student id ...
-        :return:
-        """
-        if self._info:
-            return
-
-        r = self._s.post(BNUjwc._student_info_url)
-        info_node = etree.fromstring(r.text)
-
-        self._info[info_node[0].tag] = info_node[0].text
-        for e in info_node[1]:
-            self._info[e.tag] = e.text
-
-    def _get_table_list(self, table_id, post_data):
-        r = self._s.post(BNUjwc._table_url + table_id, data=post_data)
-        self._parser.feed(r.text)
-        return self._parser.courses
-
-    def get_course_list(self, show_full=False):
+    def get_plan_courses(self, show_full=False):
         self._get_student_info()
         post_data = {
             'initQry': 0,
@@ -198,7 +220,7 @@ class BNUjwc:
         }
         return self._get_table_list(BNUjwc._cancel_list_table_id, post_data)
 
-    def get_elective_course_list(self, show_full=False):
+    def get_elective_courses(self, show_full=False):
         self._get_student_info()
         post_data = {
             'initQry': 0,
@@ -226,29 +248,7 @@ class BNUjwc:
             post_data['xwxmkc'] = 'on'
         return self._get_table_list(BNUjwc._elective_course_list_table_id, post_data)
 
-    def _encrypt_params(self, params):
-
-        r = self._s.get(BNUjwc._deskey_url + str(random.randint(0, 10000000)))
-
-        _deskey = ''
-        m = re.search(r"var _deskey = '(.*)';", r.text)
-        if m:
-             _deskey = m.group(1)
-
-        timestamp = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        m = hashlib.md5()
-        m.update(params.encode('ascii'))
-        params_md5 = m.hexdigest()
-        m = hashlib.md5()
-        m.update(timestamp.encode('ascii'))
-        time_md5 = m.hexdigest()
-        m = hashlib.md5()
-        m.update((params_md5+time_md5).encode('ascii'))
-        token = m.hexdigest()
-        _params = base64.b64encode(self._des.call('strEnc', params, _deskey).encode())
-        return _params, token, timestamp
-
-    def cancelCourse(self, course):
+    def cancel_course(self, course):
 
         self._get_student_info()
         params = "xn=%s&xq=%s&xh=%s&kcdm=%s&skbjdm=%s&xktype=5" % (self._info['xn'], self._info['xq_m'],
@@ -283,8 +283,11 @@ if __name__ == '__main__':
     jwc = BNUjwc()
     with open('user.txt', 'r') as f:
         jwc.login(f.readline().strip(), f.readline().strip())
-    courses = jwc.get_elective_course_list()
+    print(jwc._get_student_info())
+    """
+    courses = jwc.get_elective_courses()
     for i, course in enumerate(courses):
         print(i, course)
     i = input()
     print(jwc.select_elective_course(courses[int(i)]))
+    """
