@@ -26,6 +26,12 @@ class TableHTMLParser(HTMLParser):
 
         HTMLParser.__init__(self)
 
+    def feed(self, data):
+        self.start_td = self.start_tr = False
+        self.courses = []
+        self.course = {}
+        HTMLParser.feed(self, data)
+
     def handle_starttag(self, tag, attrs):
         if tag == 'tr':
             self.start_tr = True
@@ -60,9 +66,11 @@ class BNUjwc:
     _cancel_course_url = 'http://zyfw.bnu.edu.cn/jw/common/cancelElectiveCourse.action'
     _select_elective_course_url = 'http://zyfw.bnu.edu.cn/jw/common/saveElectiveCourse.action'
 
+
     _course_list_table_id = '5327018'
     _cancel_list_table_id = '6093'
     _elective_course_list_table_id = '5327095'
+    _view_planned_course_table_id = '6142'
 
     def __init__(self):
         self._s = requests.Session()
@@ -133,14 +141,17 @@ class BNUjwc:
 
         return self._info
 
-    def _get_table_list(self, table_id, post_data):
+    def _get_table_list(self, table_id, post_data, get_data = ''):
         """
         get table page and parse the table HTML to a list of dict
         :param table_id: ID of table to get
         :param post_data: POST data
         :return: a list of dict (each dict is a row)
         """
-        r = self._s.post(BNUjwc._table_url + table_id, data=post_data)
+        if get_data:
+            r = self._s.post(BNUjwc._table_url + table_id + '&' + get_data, data=post_data)
+        else:
+            r = self._s.post(BNUjwc._table_url + table_id, data=post_data)
         self._parser.feed(r.text)
         return self._parser.courses
 
@@ -250,24 +261,25 @@ class BNUjwc:
     def get_cancel_courses(self):
         """
         get courses which can be canceled
-        :return: a list of dict [{
+        :return: a list of dict [{ # courses not selected have only items with '!'
             'xkfs': '学生网上选', # selection method
             'sksjdd': '1-16周 四[9-10] 八111(62)', # when and where
             'rkjs': '[00]xx', # teacher
             'school_name': '本部', # school name
-            'kcdm': '', # code for course
-            'zxs': '', # total lecture hours,
+            'kcdm': '', # code for course !
+            'zxs': '', # total lecture hours !
             'xk_status': '选中', # status of selection
             'skbjdm': '', # code for class of the course
             'xk_points': '0', # needed point to select the course (deprecated)
-            'xf': '', # score of the course
-            'kclb2': '', # classification code 2 of course
+            'xf': '', # score of the course !
+            'kclb2': '', # classification code 2 of course !
             'show_skbjdm': '', # code shown for class of course
-            'khfs': '', # unknown
-            'lb': '学校平台/大学外语模块/必修', # classification
-            'operation': '退选', # operation
-            'kclb1': '', # classification code 1 of course
-            'kc': '[00]xx' # course name
+            'khfs': '', # unknown !
+            'lb': '学校平台/大学外语模块/必修', # classification !
+            'operation': '退选', # operation !
+            'kclb1': '', # classification code 1 of course !
+            'kc': '[00]xx', # course name !
+            'kcxz': '' # unknown !
         }, ...]
         """
         self._get_student_info()
@@ -390,15 +402,97 @@ class BNUjwc:
         })
         return json.loads(r.text)
 
+    def view_plan_course(self, course):
+        """
+        view specific planned course's details
+        :param course: course info dict returned by get_plan_courses
+        :return: a list of dict [{
+            'sksj': '1-16周 四[9-10]', # when
+            'rkjs': '[00]xx', # teacher
+            'current_skbjdm': '', # code for child class of the course
+            'skbjdm': '', # code for class of the course
+            'skfs_mc': '理论', # teaching method
+            'xkrs': 'current/listen free', # number of student selecting the course
+            'skdd': '七107', # where
+            'xkrssx': '', # capacity
+            'kxrs': '', # remaining amount
+            'xqdm': '0', # code for campus
+            'xqmc': '本部', # campus
+            'skfs_m': '0' # teaching method code
+        }, ...]
+        """
+        self._get_student_info()
+        params = 'xn=%s&xq_m=%s&xh=%s&kcdm=%s&skbjdm=&xktype=2&kcfw=zxbnj' \
+                 % (self._info['xn'], self._info['xq_m'], self._info['xh'], course['kcdm'])
+        post_data = {
+            'initQry': 0,
+            'electiveCourseForm.xktype': 2,
+            'electiveCourseForm.xh': self._info['xh'],
+            'electiveCourseForm.xn': self._info['xn'],
+            'electiveCourseForm.xq': self._info['xq_m'],
+            'electiveCourseForm.nj': self._info['nj'],
+            'electiveCourseForm.zydm': self._info['zydm'],
+            'electiveCourseForm.kcdm': course['kcdm'],
+            'electiveCourseForm.kclb1': course['kclb1'],
+            'electiveCourseForm.kclb2': course['kclb2'],
+            'electiveCourseForm.kclb3': '',
+            'electiveCourseForm.khfs': course['khfs'],
+            'electiveCourseForm.skbjdm': '',
+            'electiveCourseForm.skbzdm': '',
+            'electiveCourseForm.xf': course['xf'],
+            'electiveCourseForm.is_checkTime': '1',
+            'kknj': '',
+            'kkzydm': '',
+            'txt_skbjdm': '',
+            'electiveCourseForm.xk_points': '0',
+            'electiveCourseForm.is_buy_book': '',
+            'electiveCourseForm.is_cx': '',
+            'electiveCourseForm.is_yxtj': '',
+            'menucode_current': 'JW130403'
+        }
+        return self._get_table_list(BNUjwc._view_planned_course_table_id, post_data, params)
+
+    def select_plan_course(self, course, child_course):
+        """
+        select specific planned course
+        :param course: course info dict returned by get_plan_courses
+        :param child_course: child course info dict returned by view_plan_course
+        :return: {
+            'result': '',
+            'status': '200|400',
+            'message': ''
+        }
+        """
+        self._get_student_info()
+        params = "xktype=2&xn=%s&xq=%s&xh=%s&nj=%s&zydm=%s&kcdm=%s&kclb1=%s&kclb2=%s&kclb3=" \
+                 "&khfs=%s&skbjdm=%s&skbzdm=&xf=%s&is_checkTime=1&kknj=&kkzydm=&txt_skbjdm=" \
+                 "&xk_points=0&is_buy_book=0&is_cx=0&is_yxtj=1&menucode_current=JW130403&kcfw=zxbnj"\
+                 % (self._info['xn'], self._info['xq_m'], self._info['xh'], self._info['nj'], self._info['zydm'],
+                    course['kcdm'], course['kclb1'], course['kclb2'], course['khfs'], child_course['skbjdm'],
+                    course['xf'])
+
+        _params, token, timestamp = self._encrypt_params(params)
+        r = self._s.post(BNUjwc._select_elective_course_url, data={
+            'params': _params,
+            'token': token,
+            'timestamp': timestamp
+        })
+        return json.loads(r.text)
+
 
 if __name__ == '__main__':
     jwc = BNUjwc()
     with open('user.txt', 'r') as f:
         jwc.login(f.readline().strip(), f.readline().strip())
 
-    courses = jwc.get_elective_courses()
+    courses = jwc.get_plan_courses()
     for i, course in enumerate(courses):
         print(i, course)
-    i = input()
-    print(jwc.select_elective_course(courses[int(i)]))
+    i = int(input())
+    child_courses = jwc.view_plan_course(courses[i])
 
+    for j, child_course in enumerate(child_courses):
+        print(j, child_course)
+    j = int(input())
+
+    print(jwc.select_plan_course(courses[i], child_courses[j]))
