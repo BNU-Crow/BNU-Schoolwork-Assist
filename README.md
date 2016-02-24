@@ -33,5 +33,5 @@ Query exams
 Query scores
 5. 评教   
 Evaluate teachers
-6. 设计和实现选课策略
+6. 设计和实现选课策略   
 Design and implement strategies to select courses
