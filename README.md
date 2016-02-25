@@ -22,17 +22,16 @@ Cancel course
 Select elective course
 6. 选开课计划课程   
 Select planning course
+7. 查询选课结果   
+Query course selection result
 
 ## TODO
 
-
-1. 查询选课结果   
-Query course selection result
-2. 查询考试安排   
+1. 查询考试安排   
 Query exams
-3. 查询考试成绩   
+2. 查询考试成绩   
 Query scores
-4. 评教   
+3. 评教   
 Evaluate teachers
-5. 设计和实现选课策略   
+4. 设计和实现选课策略   
 Design and implement strategies to select courses

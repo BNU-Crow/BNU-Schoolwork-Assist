@@ -57,6 +57,61 @@ class TableHTMLParser(HTMLParser):
             self.course[self.start_td] = data
 
 
+class ResultHTMLParser(HTMLParser):
+    def __init__(self):
+        self.start_table = self.start_thead = self.start_td = self.start_tr = False
+        self.tables = []
+        self.table = []
+        self.tr = []
+        self.data = ''
+
+        HTMLParser.__init__(self)
+
+    def feed(self, data):
+        self.start_table = self.start_thead = self.start_td = self.start_tr = False
+        self.tables = []
+        self.table = []
+        self.tr = []
+        self.data = ''
+        HTMLParser.feed(self, data)
+
+    def handle_starttag(self, tag, attrs):
+        if self.start_table:
+            if tag == 'thead':
+                self.start_thead = True
+            elif tag == 'tr' and not self.start_thead:
+                self.start_tr = True
+            elif tag == 'td' and self.start_tr:
+                self.start_td = True
+        elif tag == 'table':
+            self.start_table = True
+        self.tag = tag
+
+    def handle_endtag(self, tag):
+        if tag == 'tr':
+            if len(self.tr):
+                self.table.append(self.tr)
+                self.tr = []
+            self.start_tr = False
+        elif tag == 'td':
+            if len(self.tr) or self.data.strip():
+                self.tr.append(self.data.strip())
+                self.data = ''
+            self.start_td = False
+        elif tag == 'table':
+            if len(self.table):
+                self.tables.append(self.table)
+                self.table = []
+            self.start_table = False
+        elif tag == 'thead':
+            self.start_thead = False
+
+    def handle_data(self, data):
+        if self.start_td:
+            if not self.data.strip():
+                self.data = data.strip()
+
+
 class BNUjwc:
     _login_url = 'http://cas.bnu.edu.cn/cas/login?service=http%3A%2F%2Fzyfw.bnu.edu.cn%2FMainFrm.html'
     _student_info_url = 'http://zyfw.bnu.edu.cn/STU_DynamicInitDataAction.do' \
@@ -65,7 +120,7 @@ class BNUjwc:
     _deskey_url = 'http://zyfw.bnu.edu.cn/custom/js/SetKingoEncypt.jsp?random='
     _cancel_course_url = 'http://zyfw.bnu.edu.cn/jw/common/cancelElectiveCourse.action'
     _select_elective_course_url = 'http://zyfw.bnu.edu.cn/jw/common/saveElectiveCourse.action'
-
+    _selection_result_url = 'http://zyfw.bnu.edu.cn/student/wsxk.zxjg10139.jsp?menucode=JW130404&random='
 
     _course_list_table_id = '5327018'
     _cancel_list_table_id = '6093'
@@ -82,7 +137,8 @@ class BNUjwc:
         self._lt = ''
         self._execution = ''
         self._info = {}
-        self._parser = TableHTMLParser()
+        self._table_parser = TableHTMLParser()
+        self._result_parser = ResultHTMLParser()
 
         # des js
         with open('des.js', 'r', encoding='utf8') as f:
@@ -152,8 +208,8 @@ class BNUjwc:
             r = self._s.post(BNUjwc._table_url + table_id + '&' + get_data, data=post_data)
         else:
             r = self._s.post(BNUjwc._table_url + table_id, data=post_data)
-        self._parser.feed(r.text)
-        return self._parser.courses
+        self._table_parser.feed(r.text)
+        return self._table_parser.courses
 
     def _encrypt_params(self, params):
         """
@@ -479,12 +535,69 @@ class BNUjwc:
         })
         return json.loads(r.text)
 
+    def get_selection_result(self):
+        """
+        get selection result
+        :return: {
+            'semester': ['学年学期：2015-2016', '春季学期', '时间区段：2015-12-24 20:00→2016-01-15 23:59'],
+            'modules': [{
+                '模块': '学校平台/思想政治理论模块',
+                '限选学分': '',
+                '已选学分': '',
+                '可选学分': '',
+                '指定学分': '', # none
+                '限选门数': '',
+                '已选门数': '',
+                '可选门数': '',
+                '指定门数': '', # none
+            }, ...],
+            'courses': [{
+                '上课时间地点': '1-16\xa0周四[9-10]\xa0八111',
+                '类别': '大学外语模块',
+                '课程': '[0410036171]跨文化交际英语课程',
+                '已选人数': '35', '限选人数': '35',
+                '学分': '2.0',
+                '上课班级名称': '02班',
+                '序号': '1',
+                '可选人数': '0',
+                '任课教师': '高秀琴',
+                '上课班号': '02',
+                '课程代码': '0410036171-02',
+                '选课方式': '学生网上选'
+            }, ...]
+        }
+        """
+        r = self._s.get(BNUjwc._selection_result_url + str(random.random()))
+        self._result_parser.feed(r.text)
+        tables = self._result_parser.tables
+
+        semester = re.split('\xa0+', tables[0][0][0])
+        modules_title = ['模块', '限选学分', '已选学分', '可选学分', '指定学分', '限选门数', '已选门数', '可选门数', '指定门数']
+        courses_title = ['序号', '课程', '学分', '类别', '任课教师', '上课班号', '上课班级名称', '选课方式',
+                        '已选人数', '限选人数', '可选人数', '上课时间地点', '课程代码']
+
+        module = [dict(zip(modules_title, x)) for x in tables[1]]
+        courses = [dict(zip(courses_title, x)) for x in tables[2]]
+        return {
+            'semester': semester,
+            'modules': module,
+            'courses': courses
+        }
+
 
 if __name__ == '__main__':
     jwc = BNUjwc()
     with open('user.txt', 'r') as f:
         jwc.login(f.readline().strip(), f.readline().strip())
 
+    result =  jwc.get_selection_result()
+    print(result['semester'])
+    print(result['modules'])
+    for course in result['courses']:
+        print(course)
+
+
+    """
     courses = jwc.get_plan_courses()
     for i, course in enumerate(courses):
         print(i, course)
@@ -496,3 +609,4 @@ if __name__ == '__main__':
     j = int(input())
 
     print(jwc.select_plan_course(courses[i], child_courses[j]))
+    """
