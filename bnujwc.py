@@ -1,6 +1,7 @@
 import requests
 import re
 import hashlib
+import urllib
 import base64
 from datetime import datetime
 import xml.etree.cElementTree as etree
@@ -8,6 +9,7 @@ from html.parser import HTMLParser
 import execjs
 import random
 import json
+from PIL import Image
 
 
 class LoginError(Exception):
@@ -64,15 +66,17 @@ class ResultHTMLParser(HTMLParser):
         self.table = []
         self.tr = []
         self.data = ''
+        self.noskip = False
 
         HTMLParser.__init__(self)
 
-    def feed(self, data):
+    def feed(self, data, noskip = False):
         self.start_table = self.start_thead = self.start_td = self.start_tr = False
         self.tables = []
         self.table = []
         self.tr = []
         self.data = ''
+        self.noskip = noskip
         HTMLParser.feed(self, data)
 
     def handle_starttag(self, tag, attrs):
@@ -94,7 +98,7 @@ class ResultHTMLParser(HTMLParser):
                 self.tr = []
             self.start_tr = False
         elif tag == 'td':
-            if len(self.tr) or self.data.strip():
+            if self.start_td and self.noskip or len(self.tr) or self.data.strip():
                 self.tr.append(self.data.strip())
                 self.data = ''
             self.start_td = False
@@ -112,7 +116,39 @@ class ResultHTMLParser(HTMLParser):
                 self.data = data.strip()
 
 
+class EvaluateHTMLParser(HTMLParser):
+    def __init__(self):
+        self.select = set()
+        self.text = set()
+        HTMLParser.__init__(self)
+
+    def feed(self, data, noskip = False):
+        HTMLParser.feed(self, data)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'input' or tag == 'textarea':
+            isRadio = False
+            value = ''
+            for k, v in attrs:
+                if k == 'type' and v == 'radio':
+                    isRadio = True
+                elif k == 'value':
+                    value = v
+                elif k == 'tmbh':
+                    self.text.add(v.strip())
+            if isRadio:
+                self.select.add(v.split('@')[1].strip())
+
+    def handle_endtag(self, tag):
+        pass
+
+    def handle_data(self, data):
+        pass
+
+
 class BNUjwc:
+    _validate_code_url = 'http://zyfw.bnu.edu.cn/cas/genValidateCode?dateTime='
+    _login_old_url = 'http://zyfw.bnu.edu.cn/cas/logon.action'
     _login_url = 'http://cas.bnu.edu.cn/cas/login?service=http%3A%2F%2Fzyfw.bnu.edu.cn%2FMainFrm.html'
     _student_info_url = 'http://zyfw.bnu.edu.cn/STU_DynamicInitDataAction.do' \
                         '?classPath=com.kingosoft.service.jw.student.pyfa.CourseInfoService&xn=2015&xq_m=1'
@@ -121,13 +157,29 @@ class BNUjwc:
     _cancel_course_url = 'http://zyfw.bnu.edu.cn/jw/common/cancelElectiveCourse.action'
     _select_elective_course_url = 'http://zyfw.bnu.edu.cn/jw/common/saveElectiveCourse.action'
     _selection_result_url = 'http://zyfw.bnu.edu.cn/student/wsxk.zxjg10139.jsp?menucode=JW130404&random='
+    _droplist_url = 'http://zyfw.bnu.edu.cn/frame/droplist/getDropLists.action'
+    _exam_score_url = 'http://zyfw.bnu.edu.cn/student/xscj.stuckcj_data.jsp'
+    _evaluate_list_url = 'http://zyfw.bnu.edu.cn/jw/wspjZbpjWjdc/getPjlcInfo.action'
+    _evaluate_form_url = 'http://zyfw.bnu.edu.cn/student/wspj_tjzbpj_wjdcb_pj.jsp?'
+    _evaluate_save_url = 'http://zyfw.bnu.edu.cn/jw/wspjZbpjWjdc/save.action'
 
     _course_list_table_id = '5327018'
     _cancel_list_table_id = '6093'
     _elective_course_list_table_id = '5327095'
     _view_planned_course_table_id = '6142'
+    _exam_arragement_table_id = '2538'
+    _evaluate_course_list_table_id = '50058'
 
-    def __init__(self):
+    _exam_drop_name = 'Ms_KSSW_FBXNXQKSLC'
+
+    def __init__(self, username, password):
+        """
+        :param username: username (student id)
+        :param password: password (default: birthday - yyyymmdd)
+        """
+        self._username = username
+        self._password = password
+
         self._s = requests.Session()
         self._s.headers.update({
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -139,6 +191,7 @@ class BNUjwc:
         self._info = {}
         self._table_parser = TableHTMLParser()
         self._result_parser = ResultHTMLParser()
+        self._evaluate_parser = EvaluateHTMLParser()
 
         # des js
         with open('des.js', 'r', encoding='utf8') as f:
@@ -172,6 +225,17 @@ class BNUjwc:
 
         self._lt = lt
         self._execution = execution
+
+    def _get_validate_code(self):
+        """
+        """
+        r = self._s.get(BNUjwc._validate_code_url + str(random.randint(0, 1000000)), stream=True)
+        with open('code.jpg', 'wb') as f:
+            for chunk in r.iter_content(1024):
+                f.write(chunk)
+
+        img = Image.open('code.jpg')
+        return img
 
     def _get_student_info(self):
         """
@@ -237,18 +301,59 @@ class BNUjwc:
         _params = base64.b64encode(self._des.call('strEnc', params, _deskey).encode())
         return _params, token, timestamp
 
-    def login(self, username, password):
+    def _get_droplist(self, name):
+        post_data = {
+            'comboBoxName': name,
+        }
+        r = self._s.post(BNUjwc._droplist_url, post_data);
+        return r.text
+
+    def _login_old(self, code):
         """
-        login with username and password
-        :param username: username (student id)
-        :param password: password (default: birthday - yyyymmdd)
+        login for old login site
+        : param code: validate code
+        :return: None
+        """
+        m = hashlib.md5()
+        m.update(self._password.encode())
+        pwd = m.hexdigest()
+        m = hashlib.md5()
+        m.update(code.encode())
+        pwd += m.hexdigest()
+        m = hashlib.md5()
+        m.update(pwd.encode())
+        pwd = m.hexdigest()
+        post_data = {
+            'username': self._username,
+            'password': pwd,
+            'token': self._password,
+            'randnumber': code,
+            'isPasswordPolicy': '1',
+        }
+
+        try:
+            r = self._s.post(BNUjwc._login_old_url, data=post_data)
+        except ConnectionError as e:
+            raise LoginError('连接失败：' + e.strerror)
+        if r.status_code != 200:
+            raise LoginError('登录提交失败！状态码：' + str(r.status_code))
+        return json.loads(r.text)
+
+    @staticmethod
+    def _default_code_callback(code_img):
+        code_img.show()
+        return input()
+        
+    def login(self, code_callback = None):
+        """
+        login
         :return: None
         """
         self._get_login_params()
 
         post_data = {
-            'username': username,
-            'password': password,
+            'username': self._username,
+            'password': self._password,
             'code': 'code',
             'lt': self._lt,
             'execution': self._execution,
@@ -263,6 +368,15 @@ class BNUjwc:
             raise LoginError('用户密码错误')
         if r.status_code != 200:
             raise LoginError('登录提交失败！状态码：' + str(r.status_code))
+        if r.text.find('北京师范大学教务网络管理系统') != -1:
+            code_img = jwc._get_validate_code()
+            code = ''
+            if code_callback:
+                code = code_callback(code_img)
+            else:
+                code = BNUjwc._default_code_callback(code_img)
+            self._login_old(code)
+
 
     def get_plan_courses(self, show_full=False):
         """
@@ -584,18 +698,268 @@ class BNUjwc:
             'courses': courses
         }
 
+    def get_exam_rounds(self):
+        """
+        get exam rounds
+        return: [{
+            'code': '2015,0,1', # year, semester, rounds
+            'name': 'xxx考试', # description
+        }, ...]
+        """
+        return json.loads(jwc._get_droplist('Ms_KSSW_FBXNXQKSLC'))
+
+    def get_exam_arragement(self, exam):
+        """
+        get specific exam arrangement
+        param exam: one exam from get_exam_rounds
+        return: [{
+            'xf': '1.0', # score
+            'ksdd': '本部 风雨操场 健美室2', # where
+            'khfs': '考试', # exam type
+            'kssj': '2015-12-30(17周 星期三)13:30-15:10', # when
+            'zwh': '18', # seat number
+            'kc': '[1210041491]男子健美', # course name
+            'lb': '学校平台/体育与健康模块', # course classification
+        }, ...]
+        """
+        exam = exam['code']
+        exam_info = exam.split(',')
+        post_data = {
+            'xh': '',
+            'xn': exam_info[0],
+            'xq': exam_info[1],
+            'kslc': exam_info[2],
+            'xnxqkslc': exam,
+            'menucode_current': '',
+        }
+        print(self._get_table_list(BNUjwc._exam_arragement_table_id, post_data))
+
+    def get_exam_scores(self, year = None, semester = None):
+        """
+        get specific exam scores
+        param year: exam year
+        param semester: exam semester 
+                        (0: Autumn Semester, 1: Spring Semester, 2: Summer Semester)
+        return: [{
+            '辅修标记': '主修',
+            '综合成绩': '82.0',
+            '课程/环节': '[0410006991]大学英语ⅠB（读译）',
+            '备注': '',
+            '学分': '2.0',
+            '类别': '公共课/必修课',
+            '平时成绩': '84.4',
+            '期末成绩': '78.5',
+            '学年学期': '2014-2015学年秋季学期',
+            '修读性质': '初修'
+        }, ...]
+
+        """
+        self._get_student_info()
+
+        post_data = {
+            'sjxz': 'sjxz3',
+            'ysyx': 'yscj',
+            'userCode': self._info['xh'],
+            'zfx': '0',
+            'ysyxS': 'on',
+            'sjxzS': 'on',
+            'zfxS': 'on',
+            'menucode_current': '',
+        }
+
+        if year == None:
+            post_data['sjxz'] = 'sjxz1'
+        elif year and semester:
+            post_data['xn'] = year
+            post_data['xn1'] = int(year) + 1
+            post_data['xq'] = semester
+
+
+        r = self._s.post(BNUjwc._exam_score_url, post_data)
+        self._result_parser.feed(r.text, True)
+        tables = self._result_parser.tables
+        title = ['学年学期', '课程/环节', '学分', '类别', '修读性质', '平时成绩', '期末成绩', '综合成绩', '辅修标记', '备注']
+        semester_title = ''
+        scores = []
+        for x in tables[0]:
+            if x[0].strip():
+                semester_title = x[0]
+            else:
+                x[0] = semester_title
+            scores.append(dict(zip(title, x)))
+        return scores
+
+    def get_evaluate_list(self):
+        """
+        get teachers evaluating list
+        return: [{
+            'qsrq': '2015-12-14', # start date
+            'sfwjpj': '1',
+            'sfzbpj': '1',
+            'xn': '2015', # year
+            'xq_m': '0', # semester
+            'pjfsbz': '0',
+            'lcjc': '本科课堂教学终结评价', # name
+            'lcqc': '2015-2016学年秋季学期', # semester name
+            'jsrq': '2016-01-03', # end date
+            'sfkpsj': '0', # 0 - cannot 1 - can
+            'lcdm': '2015002' # code
+        }, ...]
+        """
+        post_data = {
+            'pjzt_m': 20
+        }
+        r = self._s.post(BNUjwc._evaluate_list_url, post_data)
+        m = re.findall(r'<option value=\'({.*?})\'>(.*?)</option>', r.text)
+        return [json.loads(data) for data, name in m]
+
+    def get_evaluate_course_list(self, evaluate):
+        """
+        get teachers evaluating course list
+        return: [{
+            'pjlb_m': '01',
+            'gh': '93106',
+            'kcmc': '数字逻辑',
+            'xm': '张钟军',
+            'kcdm': '1610062781',
+            'skbjdm': '1610062781-01',
+            'pjlbmc': '理论课',
+            'ypflag': '0',
+            'yhdm': '1610062781',
+            'xf': '3',
+            'sfzjjs': '1',
+            'jsid': '006346',
+            'pjzt_m': '20'
+        }, ...]
+        """
+        post_data = {
+            'xn': evaluate['xn'],
+            'xq': evaluate['xq_m'],
+            'pjlc': evaluate['lcdm'],
+            'sfzbpj': evaluate['sfzbpj'],
+            'sfwjpj': evaluate['sfwjpj'],
+            'pjzt_m': 20,
+            'pjfsbz': evaluate['pjfsbz'],
+            'menucode_current': '',
+        }
+
+        r = self._s.post(BNUjwc._table_url + BNUjwc._evaluate_course_list_table_id, data=post_data)
+        m = re.findall(r'parent.jxpj\("(.*?)","', r.text)
+        m = ','.join(m).replace('\\\"', '\"')
+        m = '[' + m + ']'
+        return json.loads(m)
+
+    def evaluate_course(self, evaluate, course, score=5):
+        """
+        evaluate specific course
+        param evaluate: evaluate round from get_evaluate_list
+        param course: evaluate course from get_evaluate_course_list
+        return: {'status': '200', 'result': None, 'message': '操作成功!'}
+        """
+
+        self._get_student_info()
+
+        get_data = {
+            'jsid': course['jsid'],
+            'sfzjjs': course['sfzjjs'],
+            'jsgh': course['gh'],
+            'jsxm': course['xm'],
+            'pjlb_m': course['pjlb_m'],
+            'pjlbmc': course['pjlbmc'],
+            'xn': evaluate['xn'],
+            'xq': evaluate['xq_m'],
+            'pjlc': evaluate['lcdm'],
+            'kcdm': course['kcdm'],
+            'kcmc': course['kcmc'],
+            'xf': course['xf'],
+            'userCode': self._info['xh'],
+            'sfzbpj': evaluate['sfzbpj'],
+            'sfwjpj': evaluate['sfwjpj'],
+            'pjzt_m': course['pjzt_m'],
+            'pjfsbz': evaluate['pjfsbz'],
+            'ypflag': course['ypflag'],
+            'mode': '0',
+            'skbjdm': course['skbjdm'],
+        }
+
+        r = self._s.get(BNUjwc._evaluate_form_url, params=get_data)
+        self._evaluate_parser.feed(r.text)
+
+        if score > 5:
+            score = 5
+        elif score < 1:
+            score = 1
+
+        commit = ';'.join([str(score) + '@' + x + '@0' + str(6 - score) for x in self._evaluate_parser.select])
+        commit = urllib.parse.quote(urllib.parse.quote(commit))
+
+        commitText = []
+        for x in self._evaluate_parser.text:
+            if score < 2:
+                commitText.append(x + '@#@优点很少，收获不多，建议老师充分调动课堂，创新教学方式，继续努力')
+            else:
+                commitText.append(x + '@#@优点很多，收获很多，没有建议，继续努力')
+
+        commitText = ';'.join(commitText)
+        commitText = urllib.parse.quote(urllib.parse.quote(commitText))
+        
+        post_data = {
+            'wspjZbpjWjdcForm.pjlb_m': course['pjlb_m'],
+            'wspjZbpjWjdcForm.sfzjjs': course['sfzjjs'],
+            'wspjZbpjWjdcForm.xn': evaluate['xn'],
+            'wspjZbpjWjdcForm.xq': evaluate['xq_m'],
+            'wspjZbpjWjdcForm.pjlc': evaluate['lcdm'],
+            'wspjZbpjWjdcForm.pjzt_m': course['pjzt_m'],
+            'wspjZbpjWjdcForm.userCode': self._info['xh'],
+            'wspjZbpjWjdcForm.kcdm': course['kcdm'],
+            'wspjZbpjWjdcForm.skbjdm': course['skbjdm'],
+            'wspjZbpjWjdcForm.pjfsbz': evaluate['pjfsbz'],
+            'wspjZbpjWjdcForm.jsid': course['jsid'],
+            'wspjZbpjWjdcForm.zbmb_m': '005',
+            'wspjZbpjWjdcForm.wjmb_m': '002',
+            'wspjZbpjWjdcForm.commitZB': commit,
+            'wspjZbpjWjdcForm.commitWJText': commitText,
+            'wspjZbpjWjdcForm.commitWJSelect': '',
+            'pycc': 1,
+            'menucode_current': '',
+        }
+
+        r = self._s.post(BNUjwc._evaluate_save_url, data=post_data)
+        return json.loads(r.text)
+
 
 if __name__ == '__main__':
-    jwc = BNUjwc()
     with open('user.txt', 'r') as f:
-        jwc.login(f.readline().strip(), f.readline().strip())
+        jwc = BNUjwc(f.readline().strip(), f.readline().strip())
 
+    jwc.login()
+
+    evaluate = jwc.get_evaluate_list()
+    for i, x in enumerate(evaluate):
+        print(i, x)
+    i = int(input())
+    course = jwc.get_evaluate_course_list(evaluate[i])
+    for j, x in enumerate(course):
+        print(j, x)
+    j = int(input())
+    print(jwc.evaluate_course(evaluate[i], course[j]))
+
+    """
+    print(jwc.get_exam_scores())
+    """
+    
+    """
+    rounds = jwc.get_exam_rounds()
+    for i, x in enumerate(rounds):
+        print(i, x)
+    i = int(input())
+    jwc.get_exam_arragement(rounds[i])
+    """
+
+    """
     result =  jwc.get_selection_result()
-    print(result['semester'])
-    print(result['modules'])
-    for course in result['courses']:
-        print(course)
-
+    print(json.dumps(result, ensure_ascii=False))
+    """
 
     """
     courses = jwc.get_plan_courses()

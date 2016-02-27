@@ -5,8 +5,10 @@ BNU Jiao Wu Xi Tong
 使用`Python 3`。   
 Using `Python 3`.    
    
-需要第三方库`requests`和`pyexecjs`。   
-3rd party libraries, `requests` and `pyexecjs` are required.   
+需要第三方库`requests`、`PIL`和`pyexecjs`。   
+3rd party libraries, `requests`, `PIL` and `pyexecjs` are required.   
+
+> 学校内网登录近期偶尔又会跳转到老版登录界面，需要输入验证码，故引入PIL库，且登录流程复杂了一些。
 
 ## 特性 Features
 
@@ -24,14 +26,18 @@ Select elective course
 Select planning course
 7. 查询选课结果   
 Query course selection result
+8. 查询考试安排   
+Query exams
+9. 查询考试成绩   
+Query scores
+10. 评教   
+Evaluate teachers
 
 ## TODO
 
-1. 查询考试安排   
-Query exams
-2. 查询考试成绩   
-Query scores
-3. 评教   
-Evaluate teachers
-4. 设计和实现选课策略   
+1. 设计和实现选课策略   
 Design and implement strategies to select courses
+2. **批量评教   
+Evaluate all teachers at one time**
+3. **提升用户交互体验   
+Improve user interative experience**

@@ -108,5 +108,9 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# custom
+
 .idea/
 user.txt
+*.swp
+code.jpg
