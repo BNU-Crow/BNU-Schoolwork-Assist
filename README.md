@@ -1,6 +1,6 @@
-# 北师大教务处 BNUjwc
-北师大教务系统   
-BNU Jiao Wu Xi Tong   
+# 北师大教务助手 BNUjwc
+北师大教务助手     
+BNU Education System Assistance
 
 使用`Python 3`。   
 Using `Python 3`.    
@@ -40,4 +40,4 @@ Design and implement strategies to select courses
 2. **批量评教   
 Evaluate all teachers at one time**
 3. **提升用户交互体验   
-Improve user interative experience**
+Improve user interactive experience**
