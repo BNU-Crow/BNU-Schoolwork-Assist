@@ -1,4 +1,4 @@
-# 北师大教务助手 BNUjwc
+# 北师大教务助手 BNU-Edu-Assistance
 北师大教务助手     
 BNU Education System Assistance
 
