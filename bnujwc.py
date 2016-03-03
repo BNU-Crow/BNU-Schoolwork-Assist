@@ -289,6 +289,7 @@ class BNUjwc:
              _deskey = m.group(1)
 
         timestamp = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        # timestamp = '2016-00-00 00:00:00'
         m = hashlib.md5()
         m.update(params.encode('ascii'))
         params_md5 = m.hexdigest()
@@ -556,7 +557,7 @@ class BNUjwc:
         }
         """
         self._get_student_info()
-        params = "xktype=2&initQry=0&xh=%s&xn=%s&xq=%s&nj=%s&zydm=%s&" \
+        params = "xktype=3&initQry=0&xh=%s&xn=%s&xq=%s&nj=%s&zydm=%s&" \
                  "kcdm=%s&kclb1=%s&kclb2=%s&khfs=%s&skbjdm=%s&" \
                  "skbzdm=&xf=%s&kcfw=zxggrx&njzy=%s&items=&is_xjls=undefined&" \
                  "kcmc=&t_skbh=&menucode_current=JW130415"\
@@ -634,7 +635,7 @@ class BNUjwc:
         }
         """
         self._get_student_info()
-        params = "xktype=2&xn=%s&xq=%s&xh=%s&nj=%s&zydm=%s&kcdm=%s&kclb1=%s&kclb2=%s&kclb3=" \
+        params = "xktype=3&xn=%s&xq=%s&xh=%s&nj=%s&zydm=%s&kcdm=%s&kclb1=%s&kclb2=%s&kclb3=" \
                  "&khfs=%s&skbjdm=%s&skbzdm=&xf=%s&is_checkTime=1&kknj=&kkzydm=&txt_skbjdm=" \
                  "&xk_points=0&is_buy_book=0&is_cx=0&is_yxtj=1&menucode_current=JW130403&kcfw=zxbnj"\
                  % (self._info['xn'], self._info['xq_m'], self._info['xh'], self._info['nj'], self._info['zydm'],
@@ -934,6 +935,7 @@ if __name__ == '__main__':
 
     jwc.login()
 
+    """
     evaluate = jwc.get_evaluate_list()
     for i, x in enumerate(evaluate):
         print(i, x)
@@ -943,6 +945,7 @@ if __name__ == '__main__':
         print(j, x)
     j = int(input())
     print(jwc.evaluate_course(evaluate[i], course[j]))
+    """
 
     """
     print(jwc.get_exam_scores())
@@ -961,7 +964,6 @@ if __name__ == '__main__':
     print(json.dumps(result, ensure_ascii=False))
     """
 
-    """
     courses = jwc.get_plan_courses()
     for i, course in enumerate(courses):
         print(i, course)
@@ -973,4 +975,22 @@ if __name__ == '__main__':
     j = int(input())
 
     print(jwc.select_plan_course(courses[i], child_courses[j]))
+    """ 
+    """
+
+    """
+    courses = jwc.get_cancel_courses()
+    for i, course in enumerate(courses):
+        print(i, course)
+    i = int(input())
+
+    print(jwc.cancel_course(courses[i]))
+    """
+    """
+    courses = jwc.get_elective_courses()
+    for i, course in enumerate(courses):
+        print(i, course)
+    i = int(input())
+
+    print(jwc.select_elective_course(courses[i]))
     """
