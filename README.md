@@ -32,12 +32,14 @@ Query exams
 Query scores
 10. 评教   
 Evaluate teachers
+11. 批量评教   
+Evaluate all teachers at one time
+12. **提升用户交互体验   
+Improve user interactive experience**
 
 ## TODO
 
 1. 设计和实现选课策略   
 Design and implement strategies to select courses
-2. **批量评教   
-Evaluate all teachers at one time**
-3. **提升用户交互体验   
-Improve user interactive experience**
+2. **实现可视化用户界面   
+Implement visual user interface**

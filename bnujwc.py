@@ -782,6 +782,8 @@ class BNUjwc:
         title = ['学年学期', '课程/环节', '学分', '类别', '修读性质', '平时成绩', '期末成绩', '综合成绩', '辅修标记', '备注']
         semester_title = ''
         scores = []
+        if len(tables) <= 0:
+            return self.get_exam_scores()
         for x in tables[0]:
             if x[0].strip():
                 semester_title = x[0]
@@ -930,10 +932,132 @@ class BNUjwc:
 
 
 if __name__ == '__main__':
+    print("登录中…")
+
     with open('user.txt', 'r') as f:
         jwc = BNUjwc(f.readline().strip(), f.readline().strip())
 
     jwc.login()
+
+    print('登录成功!\n')
+
+    def selectByPlan():
+        courses = jwc.get_plan_courses()
+        for i, course in enumerate(courses):
+            print(i, course)
+        print('输入 -1 则退出')
+        print('请输入课程序号以查看详情')
+        i = int(input())
+        if i == -1:
+            return
+        child_courses = jwc.view_plan_course(courses[i])
+        for j, child_course in enumerate(child_courses):
+            print(j, child_course)
+        print('输入 -1 则退出')
+        print('请输入课程序号以确认选课')
+        j = int(input())
+        if j == -1:
+            return
+        print(jwc.select_plan_course(courses[i], child_courses[j]))
+
+    def selectElectiveCourse():
+        courses = jwc.get_elective_courses()
+        for i, course in enumerate(courses):
+            print(i, course)
+        print('输入 -1 则退出')
+        print('请输入课程序号以确认选课')
+        i = int(input())
+        if i == -1:
+            return
+        print(jwc.select_elective_course(courses[i]))
+
+    def cancelCourse():
+        courses = jwc.get_cancel_courses()
+        for i, course in enumerate(courses):
+            print(i, course)
+        print('输入 -1 则退出')
+        print('请输入课程序号以确认退课')
+        i = int(input())
+        if i == -1:
+            return
+        print(jwc.cancel_course(courses[i]))
+
+    def querySelectionResult():
+        result =  jwc.get_selection_result()
+        print(json.dumps(result, ensure_ascii=False))
+
+    def queryExamArrangement():
+        rounds = jwc.get_exam_rounds()
+        for i, x in enumerate(rounds):
+            print(i, x)
+        print('输入 -1 则退出')
+        print('请输入考试轮次序号以确认查询')
+        i = int(input())
+        if i == -1:
+            return
+        jwc.get_exam_arragement(rounds[i])
+
+    def queryExamScores():
+        print("请输入学年(留空或查询不到则默认返回大学全部成绩):")
+        year = input()
+        semester = ''
+        if year:
+            print("请输入学期(0: 秋季学期, 1: 春季学期, 2: 夏季学期):")
+            semester = input()
+        print(jwc.get_exam_scores(year, semester))
+
+    def evaluateTeachers():
+        evaluate = jwc.get_evaluate_list()
+        for i, x in enumerate(evaluate):
+            print(i, x)
+        print('输入 -1 则退出')
+        print('请输入评教轮次序号以选择评教轮次')
+        i = int(input())
+        if i == -1:
+            return
+        course = jwc.get_evaluate_course_list(evaluate[i])
+        for j, x in enumerate(course):
+            print(j, x)
+        print('输入 -1 则退出')
+        print('输入 -2 则全部 5分 好评')
+        print('请输入课程序号以选择评教课程老师')
+        j = int(input())
+        if j == -1:
+            return
+        elif j == -2:
+             for j, x in enumerate(course):
+                print(jwc.evaluate_course(evaluate[i], x))
+             return
+        print("请输入分值(1 ~ 5):")
+        score = int(input())
+        print(jwc.evaluate_course(evaluate[i], course[j], score))
+
+    while True:
+        print("\n请输入操作代号:\n")
+        print("0: 按开课计划选课")
+        print("1: 选公共选修课")
+        print("2: 退课")
+        print("3: 查询选课结果")
+        print("4: 获取考试安排")
+        print("5: 获取考试成绩")
+        print("6: 评教")
+        print("7: 退出\n")
+
+        cmd = input()
+
+        options = {
+            "0": selectByPlan,
+            "1": selectElectiveCourse,
+            "2": cancelCourse,
+            "3": querySelectionResult,
+            "4": queryExamArrangement,
+            "5": queryExamScores,
+            "6": evaluateTeachers,
+            "7": exit,
+        }
+
+        options.get(cmd, lambda :print("无此命令!\n"))()
+
 
     """
     evaluate = jwc.get_evaluate_list()
@@ -945,52 +1069,4 @@ if __name__ == '__main__':
         print(j, x)
     j = int(input())
     print(jwc.evaluate_course(evaluate[i], course[j]))
-    """
-
-    """
-    print(jwc.get_exam_scores())
-    """
-    
-    """
-    rounds = jwc.get_exam_rounds()
-    for i, x in enumerate(rounds):
-        print(i, x)
-    i = int(input())
-    jwc.get_exam_arragement(rounds[i])
-    """
-
-    """
-    result =  jwc.get_selection_result()
-    print(json.dumps(result, ensure_ascii=False))
-    """
-
-    courses = jwc.get_plan_courses()
-    for i, course in enumerate(courses):
-        print(i, course)
-    i = int(input())
-    child_courses = jwc.view_plan_course(courses[i])
-
-    for j, child_course in enumerate(child_courses):
-        print(j, child_course)
-    j = int(input())
-
-    print(jwc.select_plan_course(courses[i], child_courses[j]))
-    """ 
-    """
-
-    """
-    courses = jwc.get_cancel_courses()
-    for i, course in enumerate(courses):
-        print(i, course)
-    i = int(input())
-
-    print(jwc.cancel_course(courses[i]))
-    """
-    """
-    courses = jwc.get_elective_courses()
-    for i, course in enumerate(courses):
-        print(i, course)
-    i = int(input())
-
-    print(jwc.select_elective_course(courses[i]))
     """
