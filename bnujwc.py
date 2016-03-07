@@ -10,6 +10,8 @@ import execjs
 import random
 import json
 from PIL import Image
+from multiprocessing import Process
+import time
 
 
 class LoginError(Exception):
@@ -281,7 +283,7 @@ class BNUjwc:
         :param params: params to be encrypted
         :return: encrypted params
         """
-        r = self._s.get(BNUjwc._deskey_url + str(random.randint(0, 10000000)))
+        r = self._s.get(BNUjwc._deskey_url + str(random.randint(100000, 100000000)))
 
         _deskey = ''
         m = re.search(r"var _deskey = '(.*)';", r.text)
@@ -344,7 +346,13 @@ class BNUjwc:
     def _default_code_callback(code_img):
         code_img.show()
         return input()
-        
+
+    def get_cookies(self):
+        return self._s.cookies
+
+    def set_cookies(self, cookies):
+        self._s.cookies = cookies
+
     def login(self, code_callback = None):
         """
         login
@@ -378,6 +386,8 @@ class BNUjwc:
                 code = BNUjwc._default_code_callback(code_img)
             self._login_old(code)
 
+    def ready_for_threading(self):
+        self._get_student_info()
 
     def get_plan_courses(self, show_full=False):
         """
@@ -546,33 +556,6 @@ class BNUjwc:
         })
         return json.loads(r.text)
 
-    def select_elective_course(self, course):
-        """
-        select specific elective course
-        :param course: course info dict returned by get_elective_courses
-        :return: {
-            'result': '',
-            'status': '200|400',
-            'message': ''
-        }
-        """
-        self._get_student_info()
-        params = "xktype=3&initQry=0&xh=%s&xn=%s&xq=%s&nj=%s&zydm=%s&" \
-                 "kcdm=%s&kclb1=%s&kclb2=%s&khfs=%s&skbjdm=%s&" \
-                 "skbzdm=&xf=%s&kcfw=zxggrx&njzy=%s&items=&is_xjls=undefined&" \
-                 "kcmc=&t_skbh=&menucode_current=JW130415"\
-                 % (self._info['xh'], self._info['xn'], self._info['xq_m'], self._info['nj'], self._info['zydm'],
-                    course['kcdm'], course['kclb1'], course['kclb2'], course['khfs'], course['skbjdm'],
-                    course['xf'], self._info['nj'] + '|' + self._info['zydm'])
-
-        _params, token, timestamp = self._encrypt_params(params)
-        r = self._s.post(BNUjwc._select_elective_course_url, data={
-            'params': _params,
-            'token': token,
-            'timestamp': timestamp
-        })
-        return json.loads(r.text)
-
     def view_plan_course(self, course):
         """
         view specific planned course's details
@@ -641,6 +624,33 @@ class BNUjwc:
                  % (self._info['xn'], self._info['xq_m'], self._info['xh'], self._info['nj'], self._info['zydm'],
                     course['kcdm'], course['kclb1'], course['kclb2'], course['khfs'], child_course['skbjdm'],
                     course['xf'])
+
+        _params, token, timestamp = self._encrypt_params(params)
+        r = self._s.post(BNUjwc._select_elective_course_url, data={
+            'params': _params,
+            'token': token,
+            'timestamp': timestamp
+        })
+        return json.loads(r.text)
+
+    def select_elective_course(self, course):
+        """
+        select specific elective course
+        :param course: course info dict returned by get_elective_courses
+        :return: {
+            'result': '',
+            'status': '200|400',
+            'message': ''
+        }
+        """
+        self._get_student_info()
+        params = "xktype=3&initQry=0&xh=%s&xn=%s&xq=%s&nj=%s&zydm=%s&" \
+                 "kcdm=%s&kclb1=%s&kclb2=%s&khfs=%s&skbjdm=%s&" \
+                 "skbzdm=&xf=%s&kcfw=zxggrx&njzy=%s&items=&is_xjls=undefined&" \
+                 "kcmc=&t_skbh=&menucode_current=JW130415"\
+                 % (self._info['xh'], self._info['xn'], self._info['xq_m'], self._info['nj'], self._info['zydm'],
+                    course['kcdm'], course['kclb1'], course['kclb2'], course['khfs'], course['skbjdm'],
+                    course['xf'], self._info['nj'] + '|' + self._info['zydm'])
 
         _params, token, timestamp = self._encrypt_params(params)
         r = self._s.post(BNUjwc._select_elective_course_url, data={
@@ -932,16 +942,29 @@ class BNUjwc:
 
 
 if __name__ == '__main__':
-    print("登录中…")
 
+    print("******************************")
+    print("* 北京师范大学 教务助手 v0.2 *")
+    print("* BNU Education Assistance   *")
+    print("*                            *")
+    print("* 作者:   许宏旭             *")
+    print("* author: Hongxu Xu          *")
+    print("*                  2016-3-6  *")
+    print("******************************")
+
+    print("登录中…")
+    username = ''
+    pwd = ''
     with open('user.txt', 'r') as f:
-        jwc = BNUjwc(f.readline().strip(), f.readline().strip())
+        username = f.readline().strip()
+        pwd = f.readline().strip()
+        jwc = BNUjwc(username, pwd)
 
     jwc.login()
 
-    print('登录成功!\n')
+    print('登录成功!')
 
-    def selectByPlan():
+    def select_by_plan():
         courses = jwc.get_plan_courses()
         for i, course in enumerate(courses):
             print(i, course)
@@ -960,7 +983,7 @@ if __name__ == '__main__':
             return
         print(jwc.select_plan_course(courses[i], child_courses[j]))
 
-    def selectElectiveCourse():
+    def select_elective_course():
         courses = jwc.get_elective_courses()
         for i, course in enumerate(courses):
             print(i, course)
@@ -971,7 +994,7 @@ if __name__ == '__main__':
             return
         print(jwc.select_elective_course(courses[i]))
 
-    def cancelCourse():
+    def cancel_course():
         courses = jwc.get_cancel_courses()
         for i, course in enumerate(courses):
             print(i, course)
@@ -982,11 +1005,11 @@ if __name__ == '__main__':
             return
         print(jwc.cancel_course(courses[i]))
 
-    def querySelectionResult():
+    def query_selection_result():
         result =  jwc.get_selection_result()
         print(json.dumps(result, ensure_ascii=False))
 
-    def queryExamArrangement():
+    def query_exam_arrangement():
         rounds = jwc.get_exam_rounds()
         for i, x in enumerate(rounds):
             print(i, x)
@@ -997,7 +1020,7 @@ if __name__ == '__main__':
             return
         jwc.get_exam_arragement(rounds[i])
 
-    def queryExamScores():
+    def query_exam_scores():
         print("请输入学年(留空或查询不到则默认返回大学全部成绩):")
         year = input()
         semester = ''
@@ -1006,7 +1029,7 @@ if __name__ == '__main__':
             semester = input()
         print(jwc.get_exam_scores(year, semester))
 
-    def evaluateTeachers():
+    def evaluate_teachers():
         evaluate = jwc.get_evaluate_list()
         for i, x in enumerate(evaluate):
             print(i, x)
@@ -1032,41 +1055,159 @@ if __name__ == '__main__':
         score = int(input())
         print(jwc.evaluate_course(evaluate[i], course[j], score))
 
+    def view_wishlist():
+        print('*** 愿望单 ***')
+        print(" - 计划课程 - ")
+        for x in wishlist['plan']:
+            print(x)
+        print(" - 公选课程 - ")
+        for x in wishlist['elective']:
+            print(x)
+
+    def add_by_plan():
+        courses = jwc.get_plan_courses()
+        for i, course in enumerate(courses):
+            print(i, course)
+        print('输入 -1 则退出')
+        print('请输入课程序号以查看详情')
+        i = int(input())
+        if i == -1:
+            return
+        child_courses = jwc.view_plan_course(courses[i])
+        for j, child_course in enumerate(child_courses):
+            print(j, child_course)
+        print('输入 -1 则退出')
+        print('请输入课程序号以确认添加')
+        j = int(input())
+        if j == -1:
+            return
+        wishlist['plan'].append((courses[i], child_courses[j]))
+        print("已添加")
+
+    def add_by_elective():
+        courses = jwc.get_elective_courses()
+        for i, course in enumerate(courses):
+            print(i, course)
+        print('输入 -1 则退出')
+        print('请输入课程序号以确认添加')
+        i = int(input())
+        if i == -1:
+            return
+        wishlist['elective'].append(courses[i])
+        print("已添加")
+
+    def grab_courses():
+
+        worklist = {
+            'elective': wishlist['elective'][:],
+            'plan': wishlist['plan'][:],
+        }
+
+        sleep_time = 1.2
+        print('默认抢课间隔时间为', sleep_time, '秒')
+        while len(worklist['elective']) + len(worklist['plan']):
+            for course in worklist['elective'][:]:
+                ret = jwc.select_elective_course(course)
+                if ret['status'] == '300':
+                    sleep_time += .2
+                    print(course['kc'], '本次抢课失败, 重新加入抢课队列. 原因: 抢课过快, 延长间隔时间为', sleep_time, '秒')
+                elif ret['message'].find('人数已满') != -1:
+                    print(course['kc'], ret['message'], '重新加入抢课队列, 等待有人退课.')
+                else:
+                    worklist['elective'].remove(course)
+                    print(course['kc'], ret['message'])
+                if len(worklist['elective']) + len(worklist['plan']):
+                    time.sleep(sleep_time)
+            for course in worklist['plan'][:]:
+                ret = jwc.select_plan_course(course[0], course[1])
+                if ret['status'] == '300':
+                    sleep_time += .2
+                    print('抢课过快,延长间隔时间为', sleep_time, '秒')
+                elif ret['message'].find('人数已满') != -1:
+                    print(course['kc'], ret['message'], '重新加入抢课队列, 等待有人退课.')
+                else:
+                    worklist['plan'].remove(course)
+                    print(course[0]['kc'], ret['message'])
+                if len(worklist['elective']) + len(worklist['plan']):
+                    time.sleep(sleep_time)
+
+        print("完成")
+
+    def bye():
+        with open("wishlist.txt", "w+") as f:
+            f.write(json.dumps(wishlist,ensure_ascii=False))
+        print("已保存愿望单")
+        print("再见")
+        exit()
+
+    first = True
+    wishlist = {}
+
+    try:
+        with open("wishlist.txt", "r+") as f:
+            wishlist = json.loads(f.read())
+    except:
+        with open("wishlist.txt", "w+") as f:
+            f.write("")
+
+    if not 'plan' in wishlist:
+        wishlist = {
+            'plan': [],
+            'elective': [],
+        }
+
     while True:
-        print("\n请输入操作代号:\n")
+
+        if first:
+            first = False
+        else:
+            print("******************************")
+            print("* 北京师范大学 教务助手 v0.2 *")
+            print("* BNU Education Assistance   *")
+            print("*                            *")
+            print("* 作者:   许宏旭             *")
+            print("* author: Hongxu Xu          *")
+            print("*                  2016-3-6  *")
+            print("******************************")
+
+        print("\n请输入操作代号:")
+        print("\n# 选课 #")
         print("0: 按开课计划选课")
         print("1: 选公共选修课")
         print("2: 退课")
         print("3: 查询选课结果")
+        print("\n# 考试 #")
         print("4: 获取考试安排")
         print("5: 获取考试成绩")
+        print("\n# 评教 #")
         print("6: 评教")
-        print("7: 退出\n")
+        print("\n*** 抢课 ***")
+        print("- 添加愿望课程")
+        print("\ta: 自开课计划")
+        print("\tb: 自公选课")
+        print("\tc: 查看愿望单")
+        print("- 抢课")
+        print("\tQ: 开始抢课")
+        print("\n7: 退出\n")
 
         cmd = input()
 
         options = {
-            "0": selectByPlan,
-            "1": selectElectiveCourse,
-            "2": cancelCourse,
-            "3": querySelectionResult,
-            "4": queryExamArrangement,
-            "5": queryExamScores,
-            "6": evaluateTeachers,
-            "7": exit,
+            "0": select_by_plan,
+            "1": select_elective_course,
+            "2": cancel_course,
+            "3": query_selection_result,
+            "4": query_exam_arrangement,
+            "5": query_exam_scores,
+            "6": evaluate_teachers,
+            "a": add_by_plan,
+            "b": add_by_elective,
+            "c": view_wishlist,
+            "Q": grab_courses,
+            "7": bye,
         }
 
         options.get(cmd, lambda :print("无此命令!\n"))()
 
-
-    """
-    evaluate = jwc.get_evaluate_list()
-    for i, x in enumerate(evaluate):
-        print(i, x)
-    i = int(input())
-    course = jwc.get_evaluate_course_list(evaluate[i])
-    for j, x in enumerate(course):
-        print(j, x)
-    j = int(input())
-    print(jwc.evaluate_course(evaluate[i], course[j]))
-    """
+        print("\n\n请按下任意键继续……")
+        input()
