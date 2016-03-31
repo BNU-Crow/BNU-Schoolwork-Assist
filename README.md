@@ -1,6 +1,6 @@
-# 北师大教务助手 BNU-Edu-Assistance
+# 北师大教务助手 BNU-Schoolwork-Assist
 北师大教务助手     
-BNU Education System Assistance
+Schoolwork Assistant for Beijing Normal University
 
 使用`Python 3`。   
 Using `Python 3`.    

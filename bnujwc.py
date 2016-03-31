@@ -290,8 +290,8 @@ class BNUjwc:
         if m:
              _deskey = m.group(1)
 
-        timestamp = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        # timestamp = '2016-00-00 00:00:00'
+        #timestamp = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = '2016-01-01 00:00:00'
         m = hashlib.md5()
         m.update(params.encode('ascii'))
         params_md5 = m.hexdigest()
@@ -1163,7 +1163,7 @@ if __name__ == '__main__':
         else:
             print("******************************")
             print("* 北京师范大学 教务助手 v0.2 *")
-            print("* BNU Education Assistance   *")
+            print("* BNU Schoolwork Assist      *")
             print("*                            *")
             print("* 作者:   许宏旭             *")
             print("* author: Hongxu Xu          *")
