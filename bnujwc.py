@@ -139,7 +139,7 @@ class EvaluateHTMLParser(HTMLParser):
                 elif k == 'tmbh':
                     self.text.add(v.strip())
             if isRadio:
-                self.select.add(v.split('@')[1].strip())
+                self.select.add(value.split('@')[1].strip())
 
     def handle_endtag(self, tag):
         pass
@@ -915,7 +915,6 @@ class BNUjwc:
 
         commitText = ';'.join(commitText)
         commitText = urllib.parse.quote(urllib.parse.quote(commitText))
-        
         post_data = {
             'wspjZbpjWjdcForm.pjlb_m': course['pjlb_m'],
             'wspjZbpjWjdcForm.sfzjjs': course['sfzjjs'],
