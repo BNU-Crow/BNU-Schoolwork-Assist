@@ -261,6 +261,8 @@ class BNUjwc:
         for e in info_node[1]:
             self._info[e.tag] = e.text
 
+        self._info['xn'] = '2016'
+        self._info['xq_m'] = '0'
         return self._info
 
     def _get_table_list(self, table_id, post_data, get_data = ''):
@@ -290,8 +292,8 @@ class BNUjwc:
         if m:
              _deskey = m.group(1)
 
-        #timestamp = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        timestamp = '2016-01-01 00:00:00'
+        timestamp = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        # timestamp = '2016-06-14 20:30:00'
         m = hashlib.md5()
         m.update(params.encode('ascii'))
         params_md5 = m.hexdigest()
@@ -1112,6 +1114,8 @@ if __name__ == '__main__':
                     print(course['kc'], '本次抢课失败, 重新加入抢课队列. 原因: 抢课过快, 延长间隔时间为', sleep_time, '秒')
                 elif ret['message'].find('人数已满') != -1:
                     print(course['kc'], ret['message'], '重新加入抢课队列, 等待有人退课.')
+                elif ret['message'].find('非有效') != -1:
+                    print(course['kc'], ret['message'], '重新加入抢课队列.')
                 else:
                     worklist['elective'].remove(course)
                     print(course['kc'], ret['message'])
@@ -1121,9 +1125,11 @@ if __name__ == '__main__':
                 ret = jwc.select_plan_course(course[0], course[1])
                 if ret['status'] == '300':
                     sleep_time += .2
-                    print('抢课过快,延长间隔时间为', sleep_time, '秒')
+                    print(course[0]['kc'], '抢课过快,延长间隔时间为', sleep_time, '秒')
                 elif ret['message'].find('人数已满') != -1:
-                    print(course['kc'], ret['message'], '重新加入抢课队列, 等待有人退课.')
+                    print(course[0]['kc'], ret['message'], '重新加入抢课队列, 等待有人退课.')
+                elif ret['message'].find('非有效') != -1:
+                    print(course[0]['kc'], ret['message'], '重新加入抢课队列.')
                 else:
                     worklist['plan'].remove(course)
                     print(course[0]['kc'], ret['message'])
