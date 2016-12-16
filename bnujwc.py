@@ -164,6 +164,7 @@ class BNUjwc:
     _evaluate_list_url = 'http://zyfw.bnu.edu.cn/jw/wspjZbpjWjdc/getPjlcInfo.action'
     _evaluate_form_url = 'http://zyfw.bnu.edu.cn/student/wspj_tjzbpj_wjdcb_pj.jsp?'
     _evaluate_save_url = 'http://zyfw.bnu.edu.cn/jw/wspjZbpjWjdc/save.action'
+    _select_info_url = 'http://zyfw.bnu.edu.cn/jw/common/getWsxkTimeRange.action?xktype='
 
     _course_list_table_id = '5327018'
     _cancel_list_table_id = '6093'
@@ -191,6 +192,7 @@ class BNUjwc:
         self._lt = ''
         self._execution = ''
         self._info = {}
+        self._select_info = {}
         self._table_parser = TableHTMLParser()
         self._result_parser = ResultHTMLParser()
         self._evaluate_parser = EvaluateHTMLParser()
@@ -257,13 +259,24 @@ class BNUjwc:
         r = self._s.post(BNUjwc._student_info_url)
         info_node = etree.fromstring(r.text)
 
-        self._info[info_node[0].tag] = info_node[0].text
-        for e in info_node[1]:
-            self._info[e.tag] = e.text
+        try:
+            self._info[info_node[0].tag] = info_node[0].text
+            for e in info_node[1]:
+                self._info[e.tag] = e.text
+        except Exception:
+            self._info['zydm'] = ''
+            print("2016 incomplete info")
 
-        self._info['xn'] = '2016'
-        self._info['xq_m'] = '0'
         return self._info
+
+    def _get_select_info(self, xktype=2):
+        url = BNUjwc._select_info_url + str(xktype)
+        r = self._s.post(url)
+        j = json.loads(r.text)
+        self._select_info = json.loads(j['result'])
+        self._select_info['xn'] = '2016'
+        self._select_info['xqM'] = '0'
+        return self._select_info
 
     def _get_table_list(self, table_id, post_data, get_data = ''):
         """
@@ -310,7 +323,7 @@ class BNUjwc:
         post_data = {
             'comboBoxName': name,
         }
-        r = self._s.post(BNUjwc._droplist_url, post_data);
+        r = self._s.post(BNUjwc._droplist_url, post_data)
         return r.text
 
     def _login_old(self, code):
@@ -417,18 +430,19 @@ class BNUjwc:
         }, ...]
         """
         self._get_student_info()
+        self._get_select_info()
         post_data = {
             'initQry': 0,
             'xktype': 2,
-            'xh': self._info['xh'],
-            'xn': self._info['xn'],
-            'xq': self._info['xq_m'],
-            'nj': self._info['nj'],
+            'xh': self._select_info['xh'],
+            'xn': self._select_info['xn'],
+            'xq': self._select_info['xqM'],
+            'nj': self._select_info['nj'],
             'zydm': self._info['zydm'],
             'items': '',
             'is_xjls': 'undefined',
             'kcfw': 'zxbnj',
-            'njzy': self._info['nj'] + '|' + self._info['zydm'],
+            'njzy': self._select_info['nj'] + '|' + self._info['zydm'],
             'lbgl': '',
             'kcmc': '',
             'kkdw_range': 'all',
@@ -466,12 +480,13 @@ class BNUjwc:
         }, ...]
         """
         self._get_student_info()
+        self._get_select_info(5)
         post_data = {
             'xktype': 5,
-            'xh': self._info['xh'],
-            'xn': self._info['xn'],
-            'xq': self._info['xq_m'],
-            'nj': self._info['nj'],
+            'xh': self._select_info['xh'],
+            'xn': self._select_info['xn'],
+            'xq': self._select_info['xqM'],
+            'nj': self._select_info['nj'],
             'zydm': self._info['zydm'],
             'items': '',
             'kcfw': 'All',
@@ -511,13 +526,14 @@ class BNUjwc:
         }, ...]
         """
         self._get_student_info()
+        self._get_select_info()
         post_data = {
             'initQry': 0,
             'xktype': 2,
-            'xh': self._info['xh'],
-            'xn': self._info['xn'],
-            'xq': self._info['xq_m'],
-            'nj': self._info['nj'],
+            'xh': self._select_info['xh'],
+            'xn': self._select_info['xn'],
+            'xq': self._select_info['xqM'],
+            'nj': self._select_info['nj'],
             'zydm': self._info['zydm'],
             'kcdm': '',
             'kclb1': '',
@@ -527,7 +543,7 @@ class BNUjwc:
             'skbzdm': '',
             'xf': '',
             'kcfw': 'zxggrx',
-            'njzy': self._info['nj'] + '|' + self._info['zydm'],
+            'njzy': self._select_info['nj'] + '|' + self._info['zydm'],
             'items': '',
             'is_xjls': 'undefined',
             'kcmc': '',
@@ -1014,10 +1030,22 @@ if __name__ == '__main__':
         rounds = jwc.get_exam_rounds()
         for i, x in enumerate(rounds):
             print(i, x)
+        print('输入 -2 则自定义查询（可能查到未公布的考试安排）')
         print('输入 -1 则退出')
         print('请输入考试轮次序号以确认查询')
         i = int(input())
-        if i == -1:
+        if i == -2:
+            print('输入学年（例如：2016-2017学年则输入2016）：')
+            y = input()
+            print('输入学期（春季学期为1，秋季学期为0）：')
+            s = input()
+            print('输入轮次（1或2，对应随堂或期末，但无法确定对应关系）：')
+            t = input()
+            exam = {}
+            exam['code'] = y + ',' + s + ',' + t
+            jwc.get_exam_arragement(exam)
+            return
+        elif i == -1:
             return
         jwc.get_exam_arragement(rounds[i])
 
