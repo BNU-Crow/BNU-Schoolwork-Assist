@@ -274,8 +274,6 @@ class BNUjwc:
         r = self._s.post(url)
         j = json.loads(r.text)
         self._select_info = json.loads(j['result'])
-        self._select_info['xn'] = '2016'
-        self._select_info['xqM'] = '0'
         return self._select_info
 
     def _get_table_list(self, table_id, post_data, get_data = ''):
@@ -564,8 +562,9 @@ class BNUjwc:
         }
         """
         self._get_student_info()
-        params = "xn=%s&xq=%s&xh=%s&kcdm=%s&skbjdm=%s&xktype=5" % (self._info['xn'], self._info['xq_m'],
-                                                                   self._info['xh'], course['kcdm'], course['skbjdm'])
+        self._get_select_info()
+        params = "xn=%s&xq=%s&xh=%s&kcdm=%s&skbjdm=%s&xktype=5" % (self._select_info['xn'], self._select_info['xqM'],
+                                                                   self._select_info['xh'], course['kcdm'], course['skbjdm'])
         _params, token, timestamp = self._encrypt_params(params)
         r = self._s.post(BNUjwc._cancel_course_url, data={
             'params': _params,
@@ -594,8 +593,9 @@ class BNUjwc:
         }, ...]
         """
         self._get_student_info()
+        self._get_select_info()
         params = 'xn=%s&xq_m=%s&xh=%s&kcdm=%s&skbjdm=&xktype=2&kcfw=zxbnj' \
-                 % (self._info['xn'], self._info['xq_m'], self._info['xh'], course['kcdm'])
+                 % (self._select_info['xn'], self._select_info['xqM'], self._select_info['xh'], course['kcdm'])
         post_data = {
             'initQry': 0,
             'electiveCourseForm.xktype': 2,
@@ -636,10 +636,11 @@ class BNUjwc:
         }
         """
         self._get_student_info()
+        self._get_select_info()
         params = "xktype=3&xn=%s&xq=%s&xh=%s&nj=%s&zydm=%s&kcdm=%s&kclb1=%s&kclb2=%s&kclb3=" \
                  "&khfs=%s&skbjdm=%s&skbzdm=&xf=%s&is_checkTime=1&kknj=&kkzydm=&txt_skbjdm=" \
                  "&xk_points=0&is_buy_book=0&is_cx=0&is_yxtj=1&menucode_current=JW130403&kcfw=zxbnj"\
-                 % (self._info['xn'], self._info['xq_m'], self._info['xh'], self._info['nj'], self._info['zydm'],
+                 % (self._select_info['xn'], self._select_info['xqM'], self._select_info['xh'], self._select_info['nj'], self._info['zydm'],
                     course['kcdm'], course['kclb1'], course['kclb2'], course['khfs'], child_course['skbjdm'],
                     course['xf'])
 
@@ -662,13 +663,14 @@ class BNUjwc:
         }
         """
         self._get_student_info()
+        self._get_select_info()
         params = "xktype=3&initQry=0&xh=%s&xn=%s&xq=%s&nj=%s&zydm=%s&" \
                  "kcdm=%s&kclb1=%s&kclb2=%s&khfs=%s&skbjdm=%s&" \
                  "skbzdm=&xf=%s&kcfw=zxggrx&njzy=%s&items=&is_xjls=undefined&" \
                  "kcmc=&t_skbh=&menucode_current=JW130415"\
-                 % (self._info['xh'], self._info['xn'], self._info['xq_m'], self._info['nj'], self._info['zydm'],
+                 % (self._select_info['xh'], self._select_info['xn'], self._select_info['xqM'], self._select_info['nj'], self._info['zydm'],
                     course['kcdm'], course['kclb1'], course['kclb2'], course['khfs'], course['skbjdm'],
-                    course['xf'], self._info['nj'] + '|' + self._info['zydm'])
+                    course['xf'], self._select_info['nj'] + '|' + self._info['zydm'])
 
         _params, token, timestamp = self._encrypt_params(params)
         r = self._s.post(BNUjwc._select_elective_course_url, data={
