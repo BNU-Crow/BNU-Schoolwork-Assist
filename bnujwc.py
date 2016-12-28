@@ -431,7 +431,7 @@ class BNUjwc:
         self._get_select_info()
         post_data = {
             'initQry': 0,
-            'xktype': 2,
+            'xktype': self._select_info['xktype'],
             'xh': self._select_info['xh'],
             'xn': self._select_info['xn'],
             'xq': self._select_info['xqM'],
@@ -527,7 +527,7 @@ class BNUjwc:
         self._get_select_info()
         post_data = {
             'initQry': 0,
-            'xktype': 2,
+            'xktype': self._select_info['xktype'],
             'xh': self._select_info['xh'],
             'xn': self._select_info['xn'],
             'xq': self._select_info['xqM'],
@@ -594,11 +594,12 @@ class BNUjwc:
         """
         self._get_student_info()
         self._get_select_info()
-        params = 'xn=%s&xq_m=%s&xh=%s&kcdm=%s&skbjdm=&xktype=2&kcfw=zxbnj' \
-                 % (self._select_info['xn'], self._select_info['xqM'], self._select_info['xh'], course['kcdm'])
+        params = 'xn=%s&xq_m=%s&xh=%s&kcdm=%s&skbjdm=&xktype=%s&kcfw=zxbnj' \
+                 % (self._select_info['xn'], self._select_info['xqM'],
+                    self._select_info['xh'], course['kcdm'], self._select_info['xktype'])
         post_data = {
             'initQry': 0,
-            'electiveCourseForm.xktype': 2,
+            'electiveCourseForm.xktype': self._select_info['xktype'],
             'electiveCourseForm.xh': self._info['xh'],
             'electiveCourseForm.xn': self._info['xn'],
             'electiveCourseForm.xq': self._info['xq_m'],
@@ -637,10 +638,11 @@ class BNUjwc:
         """
         self._get_student_info()
         self._get_select_info()
-        params = "xktype=3&xn=%s&xq=%s&xh=%s&nj=%s&zydm=%s&kcdm=%s&kclb1=%s&kclb2=%s&kclb3=" \
+        params = "xktype=%s&xn=%s&xq=%s&xh=%s&nj=%s&zydm=%s&kcdm=%s&kclb1=%s&kclb2=%s&kclb3=" \
                  "&khfs=%s&skbjdm=%s&skbzdm=&xf=%s&is_checkTime=1&kknj=&kkzydm=&txt_skbjdm=" \
                  "&xk_points=0&is_buy_book=0&is_cx=0&is_yxtj=1&menucode_current=JW130403&kcfw=zxbnj"\
-                 % (self._select_info['xn'], self._select_info['xqM'], self._select_info['xh'], self._select_info['nj'], self._info['zydm'],
+                 % (self._select_info['xktype'], self._select_info['xn'], self._select_info['xqM'],
+                    self._select_info['xh'], self._select_info['nj'], self._info['zydm'],
                     course['kcdm'], course['kclb1'], course['kclb2'], course['khfs'], child_course['skbjdm'],
                     course['xf'])
 
@@ -664,11 +666,12 @@ class BNUjwc:
         """
         self._get_student_info()
         self._get_select_info()
-        params = "xktype=3&initQry=0&xh=%s&xn=%s&xq=%s&nj=%s&zydm=%s&" \
+        params = "xktype=%s&initQry=0&xh=%s&xn=%s&xq=%s&nj=%s&zydm=%s&" \
                  "kcdm=%s&kclb1=%s&kclb2=%s&khfs=%s&skbjdm=%s&" \
                  "skbzdm=&xf=%s&kcfw=zxggrx&njzy=%s&items=&is_xjls=undefined&" \
                  "kcmc=&t_skbh=&menucode_current=JW130415"\
-                 % (self._select_info['xh'], self._select_info['xn'], self._select_info['xqM'], self._select_info['nj'], self._info['zydm'],
+                 % (self._select_info['xktype'], self._select_info['xh'], self._select_info['xn'],
+                    self._select_info['xqM'], self._select_info['nj'], self._info['zydm'],
                     course['kcdm'], course['kclb1'], course['kclb2'], course['khfs'], course['skbjdm'],
                     course['xf'], self._select_info['nj'] + '|' + self._info['zydm'])
 
@@ -979,12 +982,18 @@ if __name__ == '__main__':
         pwd = f.readline().strip()
         jwc = BNUjwc(username, pwd)
 
-    jwc.login()
+    logined = False
+    while not logined:
+        try:
+            jwc.login()
+            logined = True
+        except Exception:
+            logined = False
 
     print('登录成功!')
 
     def select_by_plan():
-        courses = jwc.get_plan_courses()
+        courses = jwc.get_plan_courses(True)
         for i, course in enumerate(courses):
             print(i, course)
         print('输入 -1 则退出')
@@ -1003,7 +1012,7 @@ if __name__ == '__main__':
         print(jwc.select_plan_course(courses[i], child_courses[j]))
 
     def select_elective_course():
-        courses = jwc.get_elective_courses()
+        courses = jwc.get_elective_courses(True)
         for i, course in enumerate(courses):
             print(i, course)
         print('输入 -1 则退出')
@@ -1096,7 +1105,7 @@ if __name__ == '__main__':
             print(x)
 
     def add_by_plan():
-        courses = jwc.get_plan_courses()
+        courses = jwc.get_plan_courses(True)
         for i, course in enumerate(courses):
             print(i, course)
         print('输入 -1 则退出')
@@ -1116,7 +1125,7 @@ if __name__ == '__main__':
         print("已添加")
 
     def add_by_elective():
-        courses = jwc.get_elective_courses()
+        courses = jwc.get_elective_courses(True)
         for i, course in enumerate(courses):
             print(i, course)
         print('输入 -1 则退出')
@@ -1161,7 +1170,7 @@ if __name__ == '__main__':
                 elif ret['message'].find('非有效') != -1:
                     print(course[0]['kc'], ret['message'], '重新加入抢课队列.')
                 else:
-                    worklist['plan'].remove(course)
+                    #worklist['plan'].remove(course)
                     print(course[0]['kc'], ret['message'])
                 if len(worklist['elective']) + len(worklist['plan']):
                     time.sleep(sleep_time)
