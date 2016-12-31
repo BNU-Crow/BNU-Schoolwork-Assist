@@ -9,7 +9,6 @@ from html.parser import HTMLParser
 import execjs
 import random
 import json
-from PIL import Image
 from multiprocessing import Process
 import time
 
@@ -149,6 +148,7 @@ class EvaluateHTMLParser(HTMLParser):
 
 
 class BNUjwc:
+    _grade_url = "http://zyfw.bnu.edu.cn/jw/common/getStuGradeSpeciatyInfo.action"
     _validate_code_url = 'http://zyfw.bnu.edu.cn/cas/genValidateCode?dateTime='
     _login_old_url = 'http://zyfw.bnu.edu.cn/cas/logon.action'
     _login_url = 'http://cas.bnu.edu.cn/cas/login?service=http%3A%2F%2Fzyfw.bnu.edu.cn%2FMainFrm.html'
@@ -193,6 +193,7 @@ class BNUjwc:
         self._execution = ''
         self._info = {}
         self._select_info = {}
+        self._grade_info = {}
         self._table_parser = TableHTMLParser()
         self._result_parser = ResultHTMLParser()
         self._evaluate_parser = EvaluateHTMLParser()
@@ -200,6 +201,13 @@ class BNUjwc:
         # des js
         with open('des.js', 'r', encoding='utf8') as f:
             self._des = execjs.compile(f.read())
+
+    def _get_grade_info(self):
+        url = BNUjwc._grade_url
+        r = self._s.post(url, data={'xh': self._info['xh']})
+        j = json.loads(r.text)
+        self._grade_info = json.loads(j['result'])
+        return self._grade_info
 
     def _get_login_params(self):
         """
@@ -238,7 +246,7 @@ class BNUjwc:
             for chunk in r.iter_content(1024):
                 f.write(chunk)
 
-        img = Image.open('code.jpg')
+        # img = Image.open('code.jpg')
         return img
 
     def _get_student_info(self):
@@ -264,7 +272,8 @@ class BNUjwc:
             for e in info_node[1]:
                 self._info[e.tag] = e.text
         except Exception:
-            self._info['zydm'] = ''
+            self._get_grade_info()
+            self._info['zydm'] = self._grade_info['zydm']
             print("2016 incomplete info")
 
         return self._info
@@ -600,10 +609,10 @@ class BNUjwc:
         post_data = {
             'initQry': 0,
             'electiveCourseForm.xktype': self._select_info['xktype'],
-            'electiveCourseForm.xh': self._info['xh'],
-            'electiveCourseForm.xn': self._info['xn'],
-            'electiveCourseForm.xq': self._info['xq_m'],
-            'electiveCourseForm.nj': self._info['nj'],
+            'electiveCourseForm.xh': self._select_info['xh'],
+            'electiveCourseForm.xn': self._select_info['xn'],
+            'electiveCourseForm.xq': self._select_info['xqM'],
+            'electiveCourseForm.nj': self._select_info['nj'],
             'electiveCourseForm.zydm': self._info['zydm'],
             'electiveCourseForm.kcdm': course['kcdm'],
             'electiveCourseForm.kclb1': course['kclb1'],
@@ -1156,7 +1165,7 @@ if __name__ == '__main__':
                 elif ret['message'].find('非有效') != -1:
                     print(course['kc'], ret['message'], '重新加入抢课队列.')
                 else:
-                    worklist['elective'].remove(course)
+                    #worklist['elective'].remove(course)
                     print(course['kc'], ret['message'])
                 if len(worklist['elective']) + len(worklist['plan']):
                     time.sleep(sleep_time)
