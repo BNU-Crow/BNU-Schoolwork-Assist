@@ -1,6 +1,6 @@
 # 北师大教务助手 BNU-Schoolwork-Assist (Deprecated)
 
-不再维护 No long maintained
+**不再维护 No longer maintained**
 
 
 
