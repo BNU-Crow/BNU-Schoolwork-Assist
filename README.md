@@ -1,4 +1,9 @@
-# 北师大教务助手 BNU-Schoolwork-Assist
+# 北师大教务助手 BNU-Schoolwork-Assist (Deprecated)
+
+不再维护 No long maintained
+
+
+
 北师大教务助手     
 Schoolwork Assistant for Beijing Normal University
 
